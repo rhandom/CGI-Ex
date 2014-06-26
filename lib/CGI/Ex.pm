@@ -19,6 +19,7 @@ use vars qw($VERSION
             $PREFERRED_CGI_REQUIRED
             $AUTOLOAD
             $DEBUG_LOCATION_BOUNCE
+            $CURRENT
             @EXPORT @EXPORT_OK
             );
 use base qw(Exporter);
@@ -218,6 +219,39 @@ sub cookies {
 
 ###----------------------------------------------------------------###
 
+### Get whether or not we are running as a PSGI app
+#   my $app = CGI::Ex::App::PSGI->psgi_app('Foo::Bar::App');
+#   $app->is_psgi; # is true
+sub is_psgi { shift->object->isa('CGI::PSGI') }
+
+### Allow for generating a PSGI response
+sub psgi_response {
+    my $self = shift;
+
+    $self->{psgi_responded} = 1;
+    $self->print_content_type;
+
+    if (my $location = $self->{psgi_location}) {
+        return [302, ['Content-Type' => 'text/html', Location => $location], ["Bounced to $location\n"]];
+    } else {
+        return [$self->{psgi_status} || 200, $self->{psgi_headers} || [], $self->{psgi_body} || ['']];
+    }
+}
+
+### Allow for sending a PSGI streaming/delayed response
+sub psgi_respond {
+    my $self = shift;
+    if ($self->{psgi_responder}) {
+        my $response = $self->psgi_response;
+        delete $response->[2];
+        $self->{psgi_writer} = $self->{psgi_responder}->($response);
+        delete $self->{psgi_responder};
+    }
+    $self->{psgi_writer};
+}
+
+###----------------------------------------------------------------###
+
 ### Allow for shared apache request object
 #   my $r = $cgix->apache_request
 #   $cgix->apache_request($r);
@@ -240,6 +274,30 @@ sub set_apache_request { shift->apache_request(shift) }
 
 ###----------------------------------------------------------------###
 
+### Portable method for printing the document content
+sub print_body {
+    my $self = shift || __PACKAGE__->new;
+
+    if ($self->is_psgi) {
+        if (my $writer = $self->psgi_respond) {
+            $writer->write($_) for (@_);
+        } else {
+            push @{$self->{psgi_body} ||= []}, $_ for (@_);
+        }
+    } else {
+        print <FH>;
+    }
+}
+
+### Portable method for getting environment variables
+sub env {
+    my $self = shift || __PACKAGE__->new;
+
+    $self->is_psgi ? $self->object->env : \%ENV;
+}
+
+###----------------------------------------------------------------###
+
 ### same signature as print_content_type
 sub content_type { &print_content_type }
 
@@ -259,7 +317,13 @@ sub print_content_type {
     }
     $type .= "; charset=$charset" if $charset && $charset =~ m|^[\w\-\.\:\+]+$|;
 
-    if (my $r = $self->apache_request) {
+    if ($self->is_psgi) {
+        if (! $self->env->{'cgix.content_typed'}) {
+            push @{$self->{psgi_headers} ||= []}, ('Content-Type' => $type);
+            $self->env->{'cgix.content_typed'} = '';
+        }
+        $self->env->{'cgix.content_typed'} .= sprintf("%s, %d\n", (caller)[1,2]);
+    } elsif (my $r = $self->apache_request) {
         return if $r->bytes_sent;
         $r->content_type($type);
         $r->send_http_header if $self->is_mod_perl_1;
@@ -278,7 +342,9 @@ sub print_content_type {
 sub content_typed {
     my $self = shift || __PACKAGE__->new;
 
-    if (my $r = $self->apache_request) {
+    if ($self->is_psgi) {
+        return $self->{psgi_responded};
+    } elsif (my $r = $self->apache_request) {
         return $r->bytes_sent;
     } else {
         return $ENV{'CONTENT_TYPED'} ? 1 : undef;
@@ -298,10 +364,13 @@ sub location_bounce {
 
     if ($self->content_typed) {
         if ($DEBUG_LOCATION_BOUNCE) {
-            print "<a class=debug href=\"$loc\">Location: $loc</a><br />\n";
+            $self->print_body("<a class=debug href=\"$loc\">Location: $loc</a><br />\n");
         } else {
-            print "<meta http-equiv=\"refresh\" content=\"0;url=$loc\" />\n";
+            $self->print_body("<meta http-equiv=\"refresh\" content=\"0;url=$loc\" />\n");
         }
+
+    } elsif ($self->is_psgi) {
+        $self->{psgi_location} = $loc;
 
     } elsif (my $r = $self->apache_request) {
         $r->status(302);
@@ -347,17 +416,17 @@ sub set_cookie {
     my $cookie = "" . $obj->cookie(%$args);
 
     if ($self->content_typed) {
-        print "<meta http-equiv=\"Set-Cookie\" content=\"$cookie\" />\n";
-    } else {
-        if (my $r = $self->apache_request) {
-            if ($self->is_mod_perl_1) {
-                $r->header_out("Set-cookie", $cookie);
-            } else {
-                $r->headers_out->add("Set-Cookie", $cookie);
-            }
+        $self->print_body("<meta http-equiv=\"Set-Cookie\" content=\"$cookie\" />\n");
+    } elsif ($self->is_psgi) {
+        push @{$self->{psgi_headers} ||= []}, ('Set-Cookie' => $cookie);
+    } elsif (my $r = $self->apache_request) {
+        if ($self->is_mod_perl_1) {
+            $r->header_out("Set-cookie", $cookie);
         } else {
-            print "Set-Cookie: $cookie\r\n";
+            $r->headers_out->add("Set-Cookie", $cookie);
         }
+    } else {
+        print "Set-Cookie: $cookie\r\n";
     }
 }
 
@@ -377,7 +446,9 @@ sub last_modified {
     $time = scalar gmtime time_calc($time);
 
     if ($self->content_typed) {
-        print "<meta http-equiv=\"$key\" content=\"$time\" />\n";
+        $self->print_body("<meta http-equiv=\"$key\" content=\"$time\" />\n");
+    } elsif ($self->is_psgi) {
+        push @{$self->{psgi_headers} ||= []}, ($key => $time);
     } elsif (my $r = $self->apache_request) {
         if ($self->is_mod_perl_1) {
             $r->header_out($key, $time);
@@ -435,7 +506,10 @@ sub send_status {
     if ($self->content_typed) {
         die "Cannot send a status ($code - $mesg) after content has been sent";
     }
-    if (my $r = $self->apache_request) {
+    if ($self->is_psgi) {
+        $self->{psgi_status} = $code;
+        $self->print_body($mesg);
+    } elsif (my $r = $self->apache_request) {
         $r->status($code);
         if ($self->is_mod_perl_1) {
             $r->content_type('text/html');
@@ -461,7 +535,9 @@ sub send_header {
     if ($self->content_typed) {
         die "Cannot send a header ($key - $val) after content has been sent";
     }
-    if (my $r = $self->apache_request) {
+    if ($self->is_psgi) {
+        push @{$self->{psgi_headers} ||= []}, ($key => $val);
+    } elsif (my $r = $self->apache_request) {
         if ($self->is_mod_perl_1) {
             $r->header_out($key, $val);
         } else {
@@ -502,7 +578,7 @@ sub print_js {
         if (! $self->content_typed) {
             $self->send_status(404, "JS File not found for print_js\n");
         } else {
-            print "<h1>JS File not found for print_js</h1>\n";
+            $self->print_body("<h1>JS File not found for print_js</h1>\n");
         }
         return;
     }
@@ -514,13 +590,13 @@ sub print_js {
         $self->print_content_type('application/x-javascript');
     }
 
-    return if $ENV{'REQUEST_METHOD'} && $ENV{'REQUEST_METHOD'} eq 'HEAD';
+    return if $self->env->{'REQUEST_METHOD'} && $self->env->{'REQUEST_METHOD'} eq 'HEAD';
 
     ### send the contents
     local *FH;
     open(FH, "<$js_file") || die "Couldn't open file  $js_file: $!";
     local $/ = undef;
-    print <FH>;
+    $self->print_body(<FH>);
     close FH;
 }
 

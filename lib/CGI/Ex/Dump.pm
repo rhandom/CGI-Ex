@@ -111,7 +111,7 @@ sub _what_is_this {
     return $html if $called eq 'dex_html';
     require CGI::Ex;
     CGI::Ex::print_content_type();
-    print $html;
+    ($CGI::Ex::CURRENT || CGI::Ex->new)->print_body($html);
   }
   return @_[0..$#_];
 }

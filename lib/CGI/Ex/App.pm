@@ -257,10 +257,10 @@ sub history            { $_[0]->{'history'}        ||= []           }
 sub js_step            { $_[0]->{'js_step'}        || 'js'          }
 sub login_step         { $_[0]->{'login_step'}     || '__login'     }
 sub mimetype           { $_[0]->{'mimetype'}       ||  'text/html'  }
-sub path_info          { $_[0]->{'path_info'}      ||  $ENV{'PATH_INFO'}   || '' }
+sub path_info          { $_[0]->{'path_info'}      ||  $_[0]->cgix->env->{'PATH_INFO'}   || '' }
 sub path_info_map_base { $_[0]->{'path_info_map_base'} ||[[qr{/(\w+)}, $_[0]->step_key]] }
 sub recurse_limit      { $_[0]->{'recurse_limit'}  ||  15    }
-sub script_name        { $_[0]->{'script_name'}    ||  $ENV{'SCRIPT_NAME'} || $0 }
+sub script_name        { $_[0]->{'script_name'}    ||  $_[0]->cgix->env->{'SCRIPT_NAME'} || $0 }
 sub stash              { $_[0]->{'stash'}          ||= {}    }
 sub step_key           { $_[0]->{'step_key'}       || 'step' }
 sub template_args      { $_[0]->{'template_args'} }
@@ -718,7 +718,7 @@ sub prepare    { 1 } # false means show step
 sub print_out {
     my ($self, $step, $out) = @_;
     $self->cgix->print_content_type($self->run_hook('mimetype', $step), $self->run_hook('charset', $step));
-    print ref($out) eq 'SCALAR' ? $$out : $out;
+    $self->cgix->print_body(ref($out) eq 'SCALAR' ? $$out : $out);
 }
 
 sub ready_validate {
@@ -728,7 +728,7 @@ sub ready_validate {
         my $form = $self->form;
         return (grep { exists $form->{$_} } @keys) ? 1 : 0;
     }
-    return ($ENV{'REQUEST_METHOD'} && $ENV{'REQUEST_METHOD'} eq 'POST') ? 1 : 0;
+    return ($self->cgix->env->{'REQUEST_METHOD'} && $self->cgix->env->{'REQUEST_METHOD'} eq 'POST') ? 1 : 0;
 }
 
 sub refine_path {
@@ -743,7 +743,7 @@ sub refine_path {
 sub set_ready_validate {
     my $self = shift;
     my ($step, $is_ready) = (@_ == 2) ? @_ : (undef, shift); # hook and method
-    $ENV{'REQUEST_METHOD'} = ($is_ready) ? 'POST' : 'GET';
+    $self->cgix->env->{'REQUEST_METHOD'} = ($is_ready) ? 'POST' : 'GET';
     return $is_ready;
 }
 

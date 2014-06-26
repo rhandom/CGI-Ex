@@ -14,3 +14,5 @@ WrapEx.pm
 cover_db
 Var.pm
 Tutorial.pod
+.git/
+.gitignore

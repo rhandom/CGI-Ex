@@ -681,10 +681,11 @@ sub get_validation_keys {
 ###---------------------###
 
 sub generate_js {
-    return "<!-- JS validation not supported in this browser $_ -->"
-        if $ENV{'HTTP_USER_AGENT'} && grep {$ENV{'HTTP_USER_AGENT'} =~ $_} @UNSUPPORTED_BROWSERS;
-
     my $self = shift;
+
+    return "<!-- JS validation not supported in this browser $_ -->"
+        if $self->cgix->env->{'HTTP_USER_AGENT'} && grep {$self->cgix->env->{'HTTP_USER_AGENT'} =~ $_} @UNSUPPORTED_BROWSERS;
+
     my $val_hash = shift || croak "Missing validation hash";
     if (ref $val_hash ne 'HASH') {
         $val_hash = $self->get_validation($val_hash) if ref $val_hash ne 'SCALAR' || ! ref $val_hash;
