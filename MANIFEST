@@ -17,6 +17,7 @@ lib/CGI/Ex/Validate.pm
 lib/CGI/Ex/Validate.pod
 lib/CGI/Ex/yaml_load.js
 lib/CGI/Ex/App/PSGI.pm
+lib/PerlIO/via/CGI/Ex.pm
 Makefile.PL
 MANIFEST
 MANIFEST.SKIP
