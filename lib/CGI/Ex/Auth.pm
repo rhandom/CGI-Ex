@@ -345,7 +345,7 @@ sub no_cookies_print {
     my $self = shift;
     return $self->{'no_cookies_print'}->($self) if $self->{'no_cookies_print'};
     $self->cgix->print_content_type;
-    print qq{<div style="border: 2px solid black;background:red;color:white">You do not appear to have cookies enabled.</div>};
+    $self->cgix->print_body(qq{<div style="border: 2px solid black;background:red;color:white">You do not appear to have cookies enabled.</div>});
 }
 
 sub login_print {
@@ -372,7 +372,7 @@ sub login_print {
 
     ### print it
     $self->cgix->print_content_type;
-    print $out;
+    $self->cgix->print_body($out);
 
     return 0;
 }

@@ -147,7 +147,7 @@ sub die_handler {
       }
     } else {
       $cgix->print_content_type;
-      print $out;
+      $cgix->print_body($out);
     }
   } else {
     ### command line execution
