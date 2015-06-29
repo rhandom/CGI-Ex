@@ -231,10 +231,12 @@ sub psgi_response {
     $self->{psgi_responded} = 1;
     $self->print_content_type;
 
+    my $headers = $self->{psgi_headers} || [];
+
     if (my $location = $self->{psgi_location}) {
-        return [302, ['Content-Type' => 'text/html', Location => $location], ["Bounced to $location\n"]];
+        return [302, ['Content-Type' => 'text/html', Location => $location, @$headers], ["Bounced to $location\n"]];
     } else {
-        return [$self->{psgi_status} || 200, $self->{psgi_headers} || [], $self->{psgi_body} || ['']];
+        return [$self->{psgi_status} || 200, $headers, $self->{psgi_body} || ['']];
     }
 }
 
