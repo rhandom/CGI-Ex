@@ -220,8 +220,8 @@ sub cookies {
 ###----------------------------------------------------------------###
 
 ### Get whether or not we are running as a PSGI app
-#   my $app = CGI::Ex::App::PSGI->psgi_app('Foo::Bar::App');
-#   $app->is_psgi; # is true
+#   my $cgix = CGI::Ex->new(object => CGI::PSGI->new($env));
+#   $cgix->is_psgi; # is true
 sub is_psgi { shift->object->isa('CGI::PSGI') }
 
 ### Allow for generating a PSGI response
