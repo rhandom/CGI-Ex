@@ -918,7 +918,7 @@ sub _cgi_environment {
     my $environment = {
         GATEWAY_INTERFACE   => 'CGI/1.1',
         HTTPS               => $env->{'psgi.url_scheme'} eq 'https' ? 'ON' : 'OFF',
-        SERVER_SOFTWARE     => "CGI-Ex-App-PSGI/$VERSION",
+        SERVER_SOFTWARE     => "CGI-Ex-App/$VERSION",
         REMOTE_ADDR         => '127.0.0.1',
         REMOTE_HOST         => 'localhost',
         map { $_ => $env->{$_} } grep { !/^psgix?\./ } keys %$env,
