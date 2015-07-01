@@ -110,8 +110,9 @@ sub _what_is_this {
     $html .= "</pre>\n";
     return $html if $called eq 'dex_html';
     require CGI::Ex;
-    CGI::Ex::print_content_type();
-    ($CGI::Ex::CURRENT || CGI::Ex->new)->print_body($html);
+    my $cgix = $CGI::Ex::CURRENT || CGI::Ex->new;
+    $cgix->print_content_type();
+    $cgix->print_body($html);
   }
   return @_[0..$#_];
 }

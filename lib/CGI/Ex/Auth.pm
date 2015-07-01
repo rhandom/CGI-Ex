@@ -237,7 +237,7 @@ sub server_time { time }
 sub cgix {
     my $self = shift;
     $self->{'cgix'} = shift if @_ == 1;
-    return $self->{'cgix'} ||= CGI::Ex->new;
+    return $self->{'cgix'} ||= $CGI::Ex::CURRENT || CGI::Ex->new;
 }
 
 sub form {

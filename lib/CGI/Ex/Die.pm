@@ -115,7 +115,7 @@ sub die_handler {
 
   ### web based - give more options
   if ($ENV{REQUEST_METHOD}) {
-    my $cgix = CGI::Ex->new;
+    my $cgix = $CGI::Ex::CURRENT || CGI::Ex->new;
     $| = 1;
     ### get the template and swap it in
     # allow for a sub that returns the template
