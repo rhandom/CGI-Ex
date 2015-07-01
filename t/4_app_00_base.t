@@ -22,6 +22,7 @@ use CGI::Ex::Dump qw(debug caller_trace);
     package CGIXFail;
     use vars qw($AUTOLOAD);
     sub new { bless {}, __PACKAGE__ }
+    sub env { \%ENV }
     sub DESTROY {}
     sub AUTOLOAD {
         my $self = shift;
@@ -1095,6 +1096,7 @@ print "### Header tests ###\n";
 {
     package CGIX;
     sub new { bless {}, __PACKAGE__ }
+    sub env { \%ENV }
     sub get_form { {} }
     sub print_js {
         my ($self, $file) = @_;
@@ -1107,6 +1109,7 @@ print "### Header tests ###\n";
         $mime .= "; charset=$char" if $char && $char =~ m|^[\w\-\.\:\+]+$|;
         $Foo::test_stdout = "Print: $mime";
     }
+    sub print_body {}
 }
 
 CGI::Ex::App->new(cgix => CGIX->new)->js_run_step;
