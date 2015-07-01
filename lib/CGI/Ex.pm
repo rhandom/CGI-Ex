@@ -1168,6 +1168,7 @@ use to stream your body content.
         my $env  = shift;
         my $cgix = CGI::Ex->new(CGI::PSGI->new($env));
 
+        $env->{'psgi.streaming'} or die 'Streaming not supported';
         return sub {
             my $responder = shift;
 
@@ -1193,6 +1194,7 @@ can always be obtained using C<psgi_respond>.
         my $env  = shift;
         my $cgix = CGI::Ex->new(CGI::PSGI->new($env));
 
+        $env->{'psgi.streaming'} or die 'Streaming not supported';
         return sub {
             my $responder = shift;
             $cgix->psgi_responder($responder);
