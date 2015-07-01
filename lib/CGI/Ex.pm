@@ -1082,7 +1082,8 @@ a header name and the value for that header.
 Send body content.  Works in CGI and mod_perl and is required for PSGI.
 Arguments are strings to be sent as the response content.  This is a portable
 replacement for C<print>.  If your script currently uses C<print> and you
-want to make it run as a PSGI app, use this. See also L<PerlIO::via::CGI::Ex>.
+want to make it run as a PSGI app, use this. See also L<PerlIO::via::CGI::Ex>
+for an alternative.
 
 =item C<-E<gt>print_js>
 
@@ -1185,7 +1186,7 @@ use to stream your body content.
 Get and set the PSGI responder.  This may be used in conjunction with
 C<psgi_respond> to stream responses.  Using this method allows you to use
 C<print_body> as you normally would.  Once the responder has been used to
-get to writer (which will happen in the first call to C<print_body>),
+get the writer (which will happen in the first call to C<print_body>),
 C<psgi_responder> will henceforth return C<undef>.  You are still
 responsible for closing the writer when you're done streaming; the writer
 can always be obtained using C<psgi_respond>.
