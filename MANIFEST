@@ -50,6 +50,7 @@ samples/benchmark/bench_validation.pl
 samples/devel/dprof_conf.d
 samples/devel/dprof_validation.d
 samples/devel/memory_app.pl
+samples/helloworld.psgi
 samples/index.cgi
 samples/validate_js_0_tests.html
 samples/validate_js_1_onsubmit.html
