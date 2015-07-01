@@ -377,36 +377,36 @@ Template::Toolkit.
     Get the response as a PSGI response. PSGI support requires "object"
     to be a CGI::PSGI object.
 
-	my $app = sub {
-	    my $env  = shift;
-	    my $cgix = CGI::Ex->new(CGI::PSGI->new($env));
+        my $app = sub {
+            my $env  = shift;
+            my $cgix = CGI::Ex->new(CGI::PSGI->new($env));
 
-	    $cgix->print_content_type;
-	    $cgix->print_body("hello world\n");
+            $cgix->print_content_type;
+            $cgix->print_body("hello world\n");
 
-	    return $cgix->psgi_response;
-	};
+            return $cgix->psgi_response;
+        };
 
 - `->psgi_respond`  
     In a streaming scenario, use this instead of "psgi_response". Pass
     the responder and it sends the response and returns a writer object
     that you may use to stream your body content.
 
-	my $app = sub {
-	    my $env  = shift;
-	    my $cgix = CGI::Ex->new(CGI::PSGI->new($env));
+        my $app = sub {
+            my $env  = shift;
+            my $cgix = CGI::Ex->new(CGI::PSGI->new($env));
 
-	    $env->{'psgi.streaming'} or die 'Streaming not supported';
-	    return sub {
-		my $responder = shift;
+            $env->{'psgi.streaming'} or die 'Streaming not supported';
+            return sub {
+                my $responder = shift;
 
-		$cgix->print_content_type;
+                $cgix->print_content_type;
 
-		my $writer = $cgix->psgi_respond($responder);
-		$writer->write("this is streamed\n");
-		$writer->close;
-	    };
-	};
+                my $writer = $cgix->psgi_respond($responder);
+                $writer->write("this is streamed\n");
+                $writer->close;
+            };
+        };
 
 - `->psgi_responder`  
     Get and set the PSGI responder. This may be used in conjunction with
@@ -417,21 +417,21 @@ Template::Toolkit.
     are still responsible for closing the writer when you're done
     streaming; the writer can always be obtained using "psgi_respond".
 
-	my $app = sub {
-	    my $env  = shift;
-	    my $cgix = CGI::Ex->new(CGI::PSGI->new($env));
+        my $app = sub {
+            my $env  = shift;
+            my $cgix = CGI::Ex->new(CGI::PSGI->new($env));
 
-	    $env->{'psgi.streaming'} or die 'Streaming not supported';
-	    return sub {
-		my $responder = shift;
-		$cgix->psgi_responder($responder);
+            $env->{'psgi.streaming'} or die 'Streaming not supported';
+            return sub {
+                my $responder = shift;
+                $cgix->psgi_responder($responder);
 
-		$cgix->print_content_type;
-		$cgix->print_body("this is streamed\n");
+                $cgix->print_content_type;
+                $cgix->print_body("this is streamed\n");
 
-		$cgix->psgi_respond->close;
-	    };
-	};
+                $cgix->psgi_respond->close;
+            };
+        };
 
 ### MODULES
 See also [CGI::Ex::App](lib/CGI/Ex/App.pm).
