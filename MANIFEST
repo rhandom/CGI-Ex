@@ -16,7 +16,6 @@ lib/CGI/Ex/validate.js
 lib/CGI/Ex/Validate.pm
 lib/CGI/Ex/Validate.pod
 lib/CGI/Ex/yaml_load.js
-lib/CGI/Ex/App/PSGI.pm
 lib/PerlIO/via/CGI/Ex.pm
 Makefile.PL
 MANIFEST
@@ -24,6 +23,7 @@ MANIFEST.SKIP
 META.yml
 README
 samples/app/app1/app1.pl
+samples/app/app1/app1.psgi
 samples/app/app1/app1.yaml
 samples/app/app1/INSTALL
 samples/app/app1/js.pl

@@ -846,6 +846,86 @@ sub _do_auth {
 }
 
 ###---------------------###
+# psgi support
+
+sub to_app {
+    my $class = shift;
+    my $args  = ref($_[0]) ? shift : (@_ % 2) ? {} : {@_};
+
+    return sub {
+        my $env = shift;
+
+        require CGI::PSGI;
+        require CGI::Ex;
+        my $cgix = CGI::Ex->new(object => CGI::PSGI->new($env));
+
+        my $do_navigate = sub {
+            # set up some shims to allow incremental porting of non-PSGI apps
+            local $CGI::Ex::CURRENT = $cgix;
+            local %ENV              = (%ENV, $class->_cgi_environment($env));
+            local *STDIN            = $env->{'psgi.input'};
+            local *STDERR           = $env->{'psgi.errors'};
+
+            $cgix->{'psgi_responder'} = shift;
+
+            my $app = ref($class) ? $class->clear_app : $class->new({%$args});
+            $app->cgix($cgix);
+            # explicitly set script_name and path_info in case Plack::App::URLMap changes the environment
+            $app->{'script_name'} = $args->{'script_name'} || $env->{'SCRIPT_NAME'};
+            $app->{'path_info'}   = $args->{'path_info'}   || $env->{'PATH_INFO'};
+            $app->navigate;
+            $env->{'psgi.streaming'} ? $cgix->psgi_respond->close : $cgix->psgi_response;
+        };
+
+        $env->{'psgi.streaming'} ? $do_navigate : $do_navigate->();
+    };
+}
+
+sub repackage {
+    my $class    = shift;
+    my $filepath = shift or die 'File path required';
+
+    my $package = do {
+        my $str = $filepath;
+        $str =~ s!(.+)\.(?:pl|cgi)$!$1!;
+        $str =~ s!([^A-Za-z0-9\/_])!sprintf('_%2x',unpack('C',$1))!eg;
+        $str =~ s!/(\d)!sprintf('/_%2x',unpack('C',$1))!eg;
+        $str =~ s![/_]!::!g;
+        "CGI::Ex::App::$str";
+    };
+
+    open(my $script, '<:utf8', $filepath) or die "Open '$filepath' failed ($!)";
+    my $app = do { local $/ = undef; <$script> };
+    close($script);
+
+    my $eval = qq(# line 1 "$filepath"\npackage $package; sub app { $app });
+    {
+        my ($filepath, $package);
+        eval("$eval; 1") or die $@;
+    }
+    my $package_filepath = $package;
+    $package_filepath =~ s!::!/!g;
+    $INC{"$package_filepath.pm"} = $filepath;
+
+    return $package;
+}
+
+sub _cgi_environment {
+    my ($class, $env) = @_;
+
+    my $environment = {
+        GATEWAY_INTERFACE   => 'CGI/1.1',
+        HTTPS               => $env->{'psgi.url_scheme'} eq 'https' ? 'ON' : 'OFF',
+        SERVER_SOFTWARE     => "CGI-Ex-App-PSGI/$VERSION",
+        REMOTE_ADDR         => '127.0.0.1',
+        REMOTE_HOST         => 'localhost',
+        map { $_ => $env->{$_} } grep { !/^psgix?\./ } keys %$env,
+    };
+
+    return wantarray ? %$environment : $environment;
+}
+
+###---------------------###
 # default steps
 
 sub js_require_auth { 0 }

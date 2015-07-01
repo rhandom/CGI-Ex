@@ -287,7 +287,7 @@ sub print_body {
             push @{$self->{psgi_body} ||= []}, $_ for (@_);
         }
     } else {
-        print <FH>;
+        print @_;
     }
 }
 
