@@ -8,7 +8,7 @@
 
 use vars qw($test_stdout @ISA);
 use strict;
-use Test::More tests => 73;
+use Test::More tests => 82;
 
 sub TIEHANDLE { bless [], __PACKAGE__ }
 sub PRINT {
@@ -23,7 +23,7 @@ ok($cgix, "Got object");
 
 ### test out form and cookies from the CGI object
 SKIP: {
-    skip("CGI.pm not found", 9) if ! eval { require CGI };
+    skip("CGI.pm not found", 10) if ! eval { require CGI };
     local $ENV{'REQUEST_METHOD'} = 'GET';
     local $ENV{'QUERY_STRING'}   = 'foo=bar&foo=baz&us=them';
     local $ENV{'HTTP_COOKIE'}    = 'bar=baz; bing=blam';
@@ -40,6 +40,43 @@ SKIP: {
     my $cookies = $cgix->cookies;
     ok($cookies, "Got cookies");
     ok($cookies->{'bar'} eq 'baz', "Found correct bar");
+
+    ok(!$cgix->is_psgi, 'is_psgi in the negative works');
+};
+
+### test out PSGI methods with CGI::PSGI object
+SKIP: {
+    skip("CGI/PSGI.pm not found", 6) if ! eval { require CGI::PSGI };
+    my $cgix_psgi1 = CGI::Ex->new(object => CGI::PSGI->new({}));
+    ok($cgix_psgi1->is_psgi, 'is_psgi in the affirmative works');
+    $cgix_psgi1->print_content_type('text/html');
+    $cgix_psgi1->print_body('hello');
+    is_deeply($cgix_psgi1->psgi_response, [200, ['Content-Type' => 'text/html'], ['hello']], 'psgi_response works');
+
+    my $cgix_psgi2 = CGI::Ex->new(object => CGI::PSGI->new({}));
+    $cgix_psgi2->send_status(404);
+    is($cgix_psgi2->psgi_response->[0], 404, 'send_status works with PSGI');
+
+    my $cgix_psgi3 = CGI::Ex->new(object => CGI::PSGI->new({}));
+    $cgix_psgi3->location_bounce('/foo');
+    my $psgi3_headers = {@{$cgix_psgi3->psgi_response->[1]}};
+    is($psgi3_headers->{'Location'}, '/foo', 'location_bounce works with PSGI');
+
+    {
+        package FakeWriter;
+        sub new { bless {}, __PACKAGE__ }
+        sub write { (shift->{'body'} ||= '') .= shift }
+        sub close {}
+        sub _body { shift->{'body'} || '' }
+    };
+    my $cgix_psgi4 = CGI::Ex->new(object => CGI::PSGI->new({}));
+    my $psgi4_response = [];
+    $cgix_psgi4->psgi_responder(sub { $psgi4_response = shift; return FakeWriter->new; });
+    $cgix_psgi4->send_status(500);
+    $cgix_psgi4->print_body('hello');
+    is($psgi4_response->[0], 500, 'PSGI streamed response status works');
+    my $psgi4_writer = $cgix_psgi4->psgi_respond;
+    ok($psgi4_writer->_body =~ /hello/, 'PSGI streamed response body works');
 };
 
 ### set a new form
@@ -109,6 +146,7 @@ ok($str eq 'foo=bar', "Make form works with keys");
 foreach my $meth (qw(
                      apache_request
                      content_typed
+                     env
                      expires
                      is_mod_perl_1
                      is_mod_perl_2
@@ -116,6 +154,7 @@ foreach my $meth (qw(
                      location_bounce
                      mod_perl_version
                      print_content_type
+                     print_body
                      print_js
                      send_status
                      send_header

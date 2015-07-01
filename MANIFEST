@@ -92,6 +92,7 @@ t/2_fill_19_complex.t
 t/2_fill_20_switcharoo.t
 t/3_conf_00_base.t
 t/4_app_00_base.t
+t/4_app_01_psgi.t
 t/5_dump_00_base.t
 t/6_die_00_base.t
 t/7_template_00_base.t
