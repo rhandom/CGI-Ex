@@ -3065,6 +3065,9 @@ The previous samples are essentially suitable for running under flat CGI,
 Fast CGI, or mod_perl Registry or mod_perl PerlRun type environments.  It
 is also very easy to run the previous example as a PSGI app.
 
+PSGI support is optional and depends on L<CGI::PSGI>, so make sure you have
+that module installed.
+
 First, create a PSGI file:
 
     ### File: /var/www/recipe.psgi

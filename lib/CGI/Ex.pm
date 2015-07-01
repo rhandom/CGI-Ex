@@ -805,6 +805,9 @@ includes pre-built html) instead CGI::Ex::App is an extended application
 flow that dramatically reduces CGI build time in most cases.  It does so
 using as little magic as possible.  See L<CGI::Ex::App>.
 
+In addition to CGI and mod_perl, PSGI is natively supported as of
+version 2.50.
+
 The main functionality is provided by several other modules that
 may be used separately, or together through the CGI::Ex interface.
 
@@ -965,6 +968,15 @@ be read in depending upon file extension.
 
 =back
 
+=item C<-E<gt>env>
+
+Get a hashref of the environment variables.  Works in CGI, mod_perl,
+and PSGI.  This is a portable replacement for accessing C<%ENV>
+directly.  If your script currently uses C<%ENV> and you want to make
+it run as a PSGI app, use this.  Using C<%ENV> still works due to
+a backwards-compatibility shim, but accessing C<%ENV> directly is
+B<DEPRECATED> for PSGI.
+
 =item C<-E<gt>get_form>
 
 Very similar to CGI->new->Vars except that arrays are returned as
@@ -1065,6 +1077,13 @@ a status code and the content (optional).
 Send a http header.  Works in both CGI and mod_perl.  Arguments are
 a header name and the value for that header.
 
+=item C<-E<gt>print_body>
+
+Send body content.  Works in CGI and mod_perl and is required for PSGI.
+Arguments are strings to be sent as the response content.  This is a portable
+replacement for C<print>.  If your script currently uses C<print> and you
+want to make it run as a PSGI app, use this. See also L<PerlIO::via::CGI::Ex>.
+
 =item C<-E<gt>print_js>
 
 Prints out a javascript file.  Does everything it can to make sure
@@ -1123,6 +1142,67 @@ of this distribution.
 If at a later date, the developer upgrades to Template::Toolkit, the
 templates that were being swapped by CGI::Ex::swap_template should
 be compatible with Template::Toolkit.
+
+=item C<-E<gt>psgi_response>
+
+Get the response as a PSGI response. PSGI support requires C<object> to be
+a L<CGI::PSGI> object.
+
+    my $app = sub {
+        my $env  = shift;
+        my $cgix = CGI::Ex->new(CGI::PSGI->new($env));
+
+        $cgix->print_content_type;
+        $cgix->print_body("hello world\n");
+
+        return $cgix->psgi_response;
+    };
+
+=item C<-E<gt>psgi_respond>
+
+In a streaming scenario, use this instead of C<psgi_response>.  Pass the
+responder and it sends the response and returns a writer object that you may
+use to stream your body content.
+
+    my $app = sub {
+        my $env  = shift;
+        my $cgix = CGI::Ex->new(CGI::PSGI->new($env));
+
+        return sub {
+            my $responder = shift;
+
+            $cgix->print_content_type;
+
+            my $writer = $cgix->psgi_respond($responder);
+            $writer->write("this is streamed\n");
+            $writer->close;
+        };
+    };
+
+=item C<-E<gt>psgi_responder>
+
+Get and set the PSGI responder.  This may be used in conjunction with
+C<psgi_respond> to stream responses.  Using this method allows you to use
+C<print_body> as you normally would.  Once the responder has been used to
+get to writer (which will happen in the first call to C<print_body>),
+C<psgi_responder> will henceforth return C<undef>.  You are still
+responsible for closing the writer when you're done streaming; the writer
+can always be obtained using C<psgi_respond>.
+
+    my $app = sub {
+        my $env  = shift;
+        my $cgix = CGI::Ex->new(CGI::PSGI->new($env));
+
+        return sub {
+            my $responder = shift;
+            $cgix->psgi_responder($responder);
+
+            $cgix->print_content_type;
+            $cgix->print_body("this is streamed\n");
+
+            $cgix->psgi_respond->close;
+        };
+    };
 
 =back
 
