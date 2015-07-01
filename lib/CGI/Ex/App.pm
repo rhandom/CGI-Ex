@@ -860,13 +860,15 @@ sub to_app {
         my $cgix = CGI::Ex->new(object => CGI::PSGI->new($env));
 
         my $do_navigate = sub {
+            my $responder = shift;
+
             # set up some shims to allow incremental porting of non-PSGI apps
             local $CGI::Ex::CURRENT = $cgix;
             local %ENV              = (%ENV, $class->_cgi_environment($env));
             local *STDIN            = $env->{'psgi.input'};
             local *STDERR           = $env->{'psgi.errors'};
 
-            $cgix->{'psgi_responder'} = shift;
+            $cgix->psgi_responder($responder);
 
             my $app = ref($class) ? $class->clear_app : $class->new({%$args});
             $app->cgix($cgix);
@@ -874,7 +876,7 @@ sub to_app {
             $app->{'script_name'} = $args->{'script_name'} || $env->{'SCRIPT_NAME'};
             $app->{'path_info'}   = $args->{'path_info'}   || $env->{'PATH_INFO'};
             $app->navigate;
-            $env->{'psgi.streaming'} ? $cgix->psgi_respond->close : $cgix->psgi_response;
+            $responder ? $cgix->psgi_respond->close : $cgix->psgi_response;
         };
 
         $env->{'psgi.streaming'} ? $do_navigate : $do_navigate->();

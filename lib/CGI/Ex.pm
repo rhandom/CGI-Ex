@@ -229,12 +229,13 @@ sub psgi_response {
     my $self = shift;
 
     $self->{'psgi_responded'} = 1;
-    $self->print_content_type;
 
     return [$self->{'psgi_status'} || 200, $self->{'psgi_headers'} || [], $self->{'psgi_body'} || []];
 }
 
 ### Allow for sending a PSGI streaming/delayed response
+#   my $writer = $cgix->psgi_respond;
+#   $writer->write('hello');
 sub psgi_respond {
     my $self = shift;
 
@@ -246,6 +247,12 @@ sub psgi_respond {
     }
 
     return $self->{'psgi_writer'};
+}
+
+### Get/set the PSGI streaming/delayed responder
+sub psgi_responder {
+    my $self = shift;
+    return $self->{'psgi_responder'} ||= shift;
 }
 
 ###----------------------------------------------------------------###
@@ -515,6 +522,7 @@ sub send_status {
     }
     if ($self->is_psgi) {
         $self->{'psgi_status'} = $code;
+        $self->print_content_type;
         $self->print_body($mesg);
     } elsif (my $r = $self->apache_request) {
         $r->status($code);
