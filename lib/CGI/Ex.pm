@@ -234,15 +234,16 @@ sub psgi_response {
 }
 
 ### Allow for sending a PSGI streaming/delayed response
-#   my $writer = $cgix->psgi_respond;
+#   my $writer = $cgix->psgi_respond($responder);
 #   $writer->write('hello');
 sub psgi_respond {
     my $self = shift;
 
-    if ($self->{'psgi_responder'}) {
+    if (my $responder = $self->psgi_responder(shift)) {
         my $response = $self->psgi_response;
-        delete $response->[2];
-        $self->{'psgi_writer'} = $self->{'psgi_responder'}->($response);
+        my $body = pop @$response;
+        $self->{'psgi_writer'} = $responder->($response);
+        $self->{'psgi_writer'}->write($_) for (@$body);
         delete $self->{'psgi_responder'};
     }
 
