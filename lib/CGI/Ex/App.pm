@@ -873,8 +873,8 @@ sub to_app {
             my $app = ref($class) ? $class->clear_app : $class->new({%$args});
             $app->cgix($cgix);
             # explicitly set script_name and path_info in case Plack::App::URLMap changes the environment
-            $app->{'script_name'} = $args->{'script_name'} || $env->{'SCRIPT_NAME'};
-            $app->{'path_info'}   = $args->{'path_info'}   || $env->{'PATH_INFO'};
+            $app->{'script_name'} = $args->{'script_name'} || $env->{'SCRIPT_NAME'} || '';
+            $app->{'path_info'}   = $args->{'path_info'}   || $env->{'PATH_INFO'}   || '';
             $app->navigate;
             $responder ? $cgix->psgi_respond->close : $cgix->psgi_response;
         };
