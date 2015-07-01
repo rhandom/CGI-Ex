@@ -142,7 +142,7 @@ __END__
         my $self = shift;
 
         $self->cgix->print_content_type;
-        print "Hello world\n";
+        $self->cgix->print_body("Hello world\n");
 
         return App__run_step__request_completed;
     }

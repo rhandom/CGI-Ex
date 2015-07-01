@@ -4,7 +4,20 @@ CGI::Ex::App - Anti-framework application framework.
 
 =head1 SYNOPSIS
 
-A basic example:
+Can be used as a native PSGI app:
+
+    -------- File: my_app.psgi --------
+
+    use strict;
+    use base qw(CGI::Ex::App);
+
+    sub main_file_print {
+        return \ "Hello World!";
+    }
+
+    __PACKAGE__->to_app;
+
+Same thing as a CGI script:
 
     -------- File: /cgi-bin/my_cgi --------
 
@@ -309,7 +322,7 @@ ends up giving the developer a lot of flexibility.
 
 Additionally, it should be possible to use CGI::Ex::App with the other
 frameworks such as CGI::Application or CGI::Prototype.  For these you
-could simple let each "runmode" call the run_step hook of CGI::Ex::App
+could simply let each "runmode" call the run_step hook of CGI::Ex::App
 and you will instantly get all of the common process flow for free.
 
 =head1 MAPPING URI TO STEP
@@ -602,7 +615,8 @@ Relative path inside of the template_path directory where content can be found. 
 =item name_module
 
 Directory inside of base_dir_rel where files for the current CGI (module) will be
-stored.  Default value is $ENV{SCRIPT_NAME} with path and extension removed.
+stored.  Default value is $ENV{SCRIPT_NAME} with path and extension removed.  You
+will need to override this if $ENV{SCRIPT_NAME} is explicitly empty.
 
 =item name_step
 
@@ -692,7 +706,7 @@ your system.  About the best way to get started is to paste the following
 code into a cgi script (such as cgi-bin/my_app) and try it out.  A detailed
 walk-through follows in the next section.  There is also a longer recipe
 database example at the end of this document that covers other topics including
-making your module a mod_perl handler.
+making your module into a PSGI app or a mod_perl handler.
 
     ### File: /var/www/cgi-bin/my_app (depending upon Apache configuration)
     ### --------------------------------------------
@@ -2487,7 +2501,7 @@ used to abort early before the get_pass_by_user hook is called.
 
 =head1 HOW DO I SET COOKIES, REDIRECT, ETC
 
-Often in your program you will want to set cookies or bounce to a differnt URL.
+Often in your program you will want to set cookies or bounce to a different URL.
 This can be done using either the builtin CGI::Ex object or the built in
 CGI object.  It is suggested that you only use the CGI::Ex methods as it will
 automatically send headers and method calls under cgi, mod_perl1, or mod_perl2.
@@ -3044,6 +3058,71 @@ The CGI::Ex::App temporarily blesses the object into the
 "morph_package" for the duration of the step and re-blesses it into the
 original package upon exit.  See the morph method and allow_morph for more
 information.
+
+=head1 RUNNING AS A PSGI APP
+
+The previous samples are essentially suitable for running under flat CGI,
+Fast CGI, or mod_perl Registry or mod_perl PerlRun type environments.  It
+is also very easy to run the previous example as a PSGI app.
+
+First, create a PSGI file:
+
+    ### File: /var/www/recipe.psgi
+    ### --------------------------------------------
+    use lib qw(/var/www/lib);
+    use Recipe;
+
+    Recipe->to_app(name_module => 'recipe');
+
+Then run it with L<plackup>:
+
+    ### command-line or init script
+    plackup /var/www/recipe.psgi
+
+Alternatively, you can run it as a one-liner without the PSGI file:
+
+    plackup -I/var/www/lib -MRecipe -e 'Recipe->to_app(name_module => "recipe")'
+
+Any parameters passed to C<to_app> are simply forwarded to the app's C<new>
+method upon construction.  Here we explicitly set name_module because
+script_name will be empty and you would otherwise get this error: Could not
+determine module name from "name_module".  Rather than pass the name_module
+through C<to_app>, you could also override the name_module hook in the module.
+
+    ### Add to /var/www/lib/Recipe.pm
+    sub name_module { 'recipe '}
+
+If you wanted to run your app at a different URL or run multiple apps in the
+same server at different URLs, you could use L<Plack::App::URLMap>.  Here is
+an example using L<Plack::Builder>, a DSL layer over URLMap:
+
+    ### File: /var/www/recipe.psgi
+    ### --------------------------------------------
+    use lib qw(/var/www/lib);
+    use Recipe;
+
+    use Plack::Builder;
+    builder {
+        mount '/recipe' => Recipe->to_app;
+        mount '/' => sub { [200, ['Content-Type' => 'text/plain'], ['Hi.']] };
+    };
+
+To convert an old legacy CGI script to a PSGI app without modifying the
+original script, you can repackage it:
+
+    ### File: /var/www/cgi-bin/myscript.pl
+    ### --------------------------------------------
+    #!/usr/bin/perl -w
+
+    use base 'CGI::Ex::App';
+
+    sub main_file_print { \ 'Hello world' }
+
+    __PACKAGE__->navigate;
+    exit;
+
+    ### command-line or init script
+    plackup -MCGI::Ex::App -e 'CGI::Ex::App->repackage("/var/www/cgi-bin/myscript.pl")->to_app(name_module => "myscript")'
 
 =head1 RUNNING UNDER MOD_PERL
 
