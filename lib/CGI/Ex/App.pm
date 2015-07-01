@@ -257,10 +257,10 @@ sub history            { $_[0]->{'history'}        ||= []           }
 sub js_step            { $_[0]->{'js_step'}        || 'js'          }
 sub login_step         { $_[0]->{'login_step'}     || '__login'     }
 sub mimetype           { $_[0]->{'mimetype'}       ||  'text/html'  }
-sub path_info          { $_[0]->{'path_info'}      ||  $_[0]->cgix->env->{'PATH_INFO'}   || '' }
+sub path_info          { defined $_[0]->{'path_info'}   ? $_[0]->{'path_info'}   : defined $_[0]->cgix->env->{'PATH_INFO'}   ? $_[0]->cgix->env->{'PATH_INFO'}   : '' }
 sub path_info_map_base { $_[0]->{'path_info_map_base'} ||[[qr{/(\w+)}, $_[0]->step_key]] }
 sub recurse_limit      { $_[0]->{'recurse_limit'}  ||  15    }
-sub script_name        { $_[0]->{'script_name'}    ||  $_[0]->cgix->env->{'SCRIPT_NAME'} || $0 }
+sub script_name        { defined $_[0]->{'script_name'} ? $_[0]->{'script_name'} : defined $_[0]->cgix->env->{'SCRIPT_NAME'} ? $_[0]->cgix->env->{'SCRIPT_NAME'} : $0 }
 sub stash              { $_[0]->{'stash'}          ||= {}    }
 sub step_key           { $_[0]->{'step_key'}       || 'step' }
 sub template_args      { $_[0]->{'template_args'} }
