@@ -228,28 +228,24 @@ sub is_psgi { shift->object->isa('CGI::PSGI') }
 sub psgi_response {
     my $self = shift;
 
-    $self->{psgi_responded} = 1;
+    $self->{'psgi_responded'} = 1;
     $self->print_content_type;
 
-    my $headers = $self->{psgi_headers} || [];
-
-    if (my $location = $self->{psgi_location}) {
-        return [302, ['Content-Type' => 'text/html', Location => $location, @$headers], ["Bounced to $location\n"]];
-    } else {
-        return [$self->{psgi_status} || 200, $headers, $self->{psgi_body} || ['']];
-    }
+    return [$self->{'psgi_status'} || 200, $self->{'psgi_headers'} || [], $self->{'psgi_body'} || []];
 }
 
 ### Allow for sending a PSGI streaming/delayed response
 sub psgi_respond {
     my $self = shift;
-    if ($self->{psgi_responder}) {
+
+    if ($self->{'psgi_responder'}) {
         my $response = $self->psgi_response;
         delete $response->[2];
-        $self->{psgi_writer} = $self->{psgi_responder}->($response);
-        delete $self->{psgi_responder};
+        $self->{'psgi_writer'} = $self->{'psgi_responder'}->($response);
+        delete $self->{'psgi_responder'};
     }
-    $self->{psgi_writer};
+
+    return $self->{'psgi_writer'};
 }
 
 ###----------------------------------------------------------------###
@@ -284,7 +280,7 @@ sub print_body {
         if (my $writer = $self->psgi_respond) {
             $writer->write($_) for (@_);
         } else {
-            push @{$self->{psgi_body} ||= []}, $_ for (@_);
+            push @{$self->{'psgi_body'} ||= []}, $_ for (@_);
         }
     } else {
         print @_;
@@ -321,7 +317,7 @@ sub print_content_type {
 
     if ($self->is_psgi) {
         if (! $self->env->{'cgix.content_typed'}) {
-            push @{$self->{psgi_headers} ||= []}, ('Content-Type' => $type);
+            push @{$self->{'psgi_headers'} ||= []}, ('Content-Type' => $type);
             $self->env->{'cgix.content_typed'} = '';
         }
         $self->env->{'cgix.content_typed'} .= sprintf("%s, %d\n", (caller)[1,2]);
@@ -345,7 +341,7 @@ sub content_typed {
     my $self = shift || __PACKAGE__->new;
 
     if ($self->is_psgi) {
-        return $self->{psgi_responded};
+        return $self->{'psgi_responded'};
     } elsif (my $r = $self->apache_request) {
         return $r->bytes_sent;
     } else {
@@ -379,7 +375,9 @@ sub location_bounce {
         }
 
     } elsif ($self->is_psgi) {
-        $self->{psgi_location} = $loc;
+        push @{$self->{'psgi_headers'} ||= []}, ('Content-Type' => 'text/html', 'Location' => $loc);
+        $self->{'psgi_status'} = 302;
+        $self->print_body("Bounced to $html_loc\n");
 
     } elsif (my $r = $self->apache_request) {
         $r->status(302);
@@ -427,7 +425,7 @@ sub set_cookie {
     if ($self->content_typed) {
         $self->print_body("<meta http-equiv=\"Set-Cookie\" content=\"$cookie\" />\n");
     } elsif ($self->is_psgi) {
-        push @{$self->{psgi_headers} ||= []}, ('Set-Cookie' => $cookie);
+        push @{$self->{'psgi_headers'} ||= []}, ('Set-Cookie' => $cookie);
     } elsif (my $r = $self->apache_request) {
         if ($self->is_mod_perl_1) {
             $r->header_out("Set-cookie", $cookie);
@@ -457,7 +455,7 @@ sub last_modified {
     if ($self->content_typed) {
         $self->print_body("<meta http-equiv=\"$key\" content=\"$time\" />\n");
     } elsif ($self->is_psgi) {
-        push @{$self->{psgi_headers} ||= []}, ($key => $time);
+        push @{$self->{'psgi_headers'} ||= []}, ($key => $time);
     } elsif (my $r = $self->apache_request) {
         if ($self->is_mod_perl_1) {
             $r->header_out($key, $time);
@@ -516,7 +514,7 @@ sub send_status {
         die "Cannot send a status ($code - $mesg) after content has been sent";
     }
     if ($self->is_psgi) {
-        $self->{psgi_status} = $code;
+        $self->{'psgi_status'} = $code;
         $self->print_body($mesg);
     } elsif (my $r = $self->apache_request) {
         $r->status($code);
@@ -545,7 +543,7 @@ sub send_header {
         die "Cannot send a header ($key - $val) after content has been sent";
     }
     if ($self->is_psgi) {
-        push @{$self->{psgi_headers} ||= []}, ($key => $val);
+        push @{$self->{'psgi_headers'} ||= []}, ($key => $val);
     } elsif (my $r = $self->apache_request) {
         if ($self->is_mod_perl_1) {
             $r->header_out($key, $val);
