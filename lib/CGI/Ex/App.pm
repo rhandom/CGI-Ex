@@ -887,21 +887,25 @@ sub repackage {
 
     my $package = do {
         my $str = $filepath;
-        $str =~ s!(.+)\.(?:pl|cgi)$!$1!;
-        $str =~ s!([^A-Za-z0-9\/_])!sprintf('_%2x',unpack('C',$1))!eg;
-        $str =~ s!/(\d)!sprintf('/_%2x',unpack('C',$1))!eg;
-        $str =~ s![/_]!::!g;
-        "CGI::Ex::App::$str";
+        $str =~ s!/!_!g;
+        $str =~ s!^_!!g;
+        $str =~ s!([^A-Za-z0-9_])!sprintf('_%2x', unpack('C', $1))!eg;
+        $str =~ s!^(\d)!_$1!;
+        "CGI::Ex::App::ROOT::$str";
     };
 
     open(my $script, '<:utf8', $filepath) or die "Open '$filepath' failed ($!)";
     my $app = do { local $/ = undef; <$script> };
     close($script);
 
-    my $eval = qq(# line 1 "$filepath"\npackage $package; sub app { $app });
+    $app =~ /^(.*?)(__(?:DATA|END)__.*?)?$/s;
+    my $inner = $1 || $app;
+    my $end   = $2 || '';
+
+    my $eval = qq(#line 1 "$filepath"\npackage $package; sub { $inner }; 1;\n$end);
     {
         my ($filepath, $package);
-        eval("$eval; 1") or die $@;
+        eval($eval) or die $@;
     }
     my $package_filepath = $package;
     $package_filepath =~ s!::!/!g;
