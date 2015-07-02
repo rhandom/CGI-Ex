@@ -45,7 +45,7 @@ ScriptAlias /samples/ /home/pauls/perl/CGI-Ex/samples/
 
 <h2>Benchmark stuff</h2>
 [% FOREACH file = bench.keys.sort ~%]
-[% file %] - [% bench.$file %]<br>
+<a href="[% script_dir ~ file %]">[% script_dir ~ file %]</a> - [% bench.$file %]<br>
 [% END -%]
 
 <h2>Other files</h2>
@@ -84,7 +84,7 @@ sub main_hash_swap {
 
     $hash->{'base'}    = $base;
 
-    $hash->{'script_dir'} = $ENV{'SCRIPT_NAME'} || $0;
+    $hash->{'script_dir'} = $self->script_name;
     $hash->{'script_dir'} =~ s|/[^/]+$||;
 
     $hash->{'app'}     = {map {$_ => $file{$_}} grep {/app/ && /\.cgi$/}    keys %file};
@@ -97,9 +97,5 @@ sub main_hash_swap {
     return $hash;
 }
 
-sub base_dir_abs {
-    my $dir = $0;
-    $dir =~ s|/[^/]+$||;
-    return $dir;
-}
+sub base_dir_abs { $Bin }
 

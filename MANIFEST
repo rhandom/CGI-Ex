@@ -52,6 +52,7 @@ samples/devel/dprof_validation.d
 samples/devel/memory_app.pl
 samples/helloworld.psgi
 samples/index.cgi
+samples/index.psgi
 samples/validate_js_0_tests.html
 samples/validate_js_1_onsubmit.html
 samples/validate_js_2_onchange.html
