@@ -1,8 +1,8 @@
 Changes
 lib/CGI/Ex.pm
 lib/CGI/Ex/App.pm
-lib/CGI/Ex/App/Constants.pm
 lib/CGI/Ex/App.pod
+lib/CGI/Ex/App/Constants.pm
 lib/CGI/Ex/Auth.pm
 lib/CGI/Ex/Conf.pm
 lib/CGI/Ex/Die.pm
@@ -20,8 +20,10 @@ lib/PerlIO/via/CGI/Ex.pm
 Makefile.PL
 MANIFEST
 MANIFEST.SKIP
+META.json			Module JSON meta-data (added by MakeMaker)
 META.yml
 README
+README.md
 samples/app/app1/app1.pl
 samples/app/app1/app1.psgi
 samples/app/app1/app1.yaml
@@ -99,4 +101,3 @@ t/6_die_00_base.t
 t/7_template_00_base.t
 t/8_auth_00_base.t
 t/9_jsondump_00_base.t
-META.json                                Module JSON meta-data (added by MakeMaker)

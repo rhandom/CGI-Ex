@@ -616,7 +616,7 @@ Basic check that string matches something resembling an http or https url.
 
 =item C<INT>
 
-Checks for an integer between -2147483648 and -2147483648
+Checks for an integer between -2147483648 and 2147483648
 
 =item C<UINT>
 
@@ -1229,6 +1229,6 @@ This module may be distributed under the same terms as Perl itself.
 
 =head1 AUTHOR
 
-Paul Seamons <paul@seamons.com>
+Paul Seamons <perl at seamons dot com>
 
 =cut
