@@ -104,6 +104,10 @@ use CGI::Ex::Dump qw(debug caller_trace);
 
 }
 
+# We should never need to read from the real STDIN, so let's avoid stalling
+# forever if CGI.pm ever does try to read from it.
+close STDIN;
+
 ###----------------------------------------------------------------###
 ###----------------------------------------------------------------###
 print "#-----------------------------------------\n";
@@ -549,6 +553,13 @@ Bar6->new({
     form => {},
 })->navigate;
 ok($Foo::test_stdout eq "Login Form", "Got the right output for Bar6 ($@)");
+
+# Reset the environment for the tests that follow. This is important because
+# some versions of CGI.pm stall on "->read_from_stdin" when the REQUEST_METHOD
+# is "POST".
+delete $ENV{'REQUEST_METHOD'};
+delete $ENV{'PATH_INFO'};
+delete $ENV{'SCRIPT_NAME'};
 
 ###----------------------------------------------------------------###
 ###----------------------------------------------------------------###
