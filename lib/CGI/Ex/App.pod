@@ -3072,7 +3072,7 @@ determine module name from "name_module".  Rather than pass the name_module
 through C<to_app>, you could also override the name_module hook in the module.
 
     ### Add to /var/www/lib/Recipe.pm
-    sub name_module { 'recipe '}
+    sub name_module { 'recipe' }
 
 If you wanted to run your app at a different URL or run multiple apps in the
 same server at different URLs, you could use L<Plack::App::URLMap>.  Here is
