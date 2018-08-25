@@ -7,7 +7,7 @@ CGI::Ex - CGI utility suite - makes powerful application writing fun and easy
 =cut
 
 ###----------------------------------------------------------------###
-#  Copyright 2003-2017 - Paul Seamons                                #
+#  Copyright - Paul Seamons                                          #
 #  Distributed under the Perl Artistic License without warranty      #
 ###----------------------------------------------------------------###
 
@@ -26,7 +26,7 @@ our ($VERSION,
 use base qw(Exporter);
 
 BEGIN {
-    $VERSION               = '2.45';
+    $VERSION               = '2.47';
     $PREFERRED_CGI_MODULE  ||= 'CGI';
     @EXPORT = ();
     @EXPORT_OK = qw(get_form
@@ -434,7 +434,7 @@ sub set_cookie {
     my $cookie = "" . $obj->cookie(%$args);
 
     if ($self->content_typed) {
-        $self->print_body("<meta http-equiv=\"Set-Cookie\" content=\"$cookie\" />\n");
+        $self->print_body("<script>document.cookie = '$cookie'</script>\n");
     } elsif ($self->is_psgi) {
         push @{$self->{'psgi_headers'} ||= []}, ('Set-Cookie' => $cookie);
     } elsif (my $r = $self->apache_request) {
