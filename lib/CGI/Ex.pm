@@ -4,6 +4,10 @@ package CGI::Ex;
 
 CGI::Ex - CGI utility suite - makes powerful application writing fun and easy
 
+=for markdown [![master](https://travis-ci.org/ljepson/CGI-Ex.svg?branch=master)](https://travis-ci.org/ljepson/CGI-Ex)
+
+=for HTML <a href="https://travis-ci.org/ljepson/CGI-Ex"><img src="https://travis-ci.org/ljepson/CGI-Ex.svg?branch=master"></a>
+
 =cut
 
 ###----------------------------------------------------------------###
@@ -15,18 +19,18 @@ CGI::Ex - CGI utility suite - makes powerful application writing fun and easy
 
 use 5.006;
 use strict;
-our ($VERSION,
-     $PREFERRED_CGI_MODULE,
+our $VERSION = '999.99'; # VERSION
+
+our ($PREFERRED_CGI_MODULE,
      $PREFERRED_CGI_REQUIRED,
      $AUTOLOAD,
      $DEBUG_LOCATION_BOUNCE,
      $CURRENT,
      @EXPORT, @EXPORT_OK
      );
-use base qw(Exporter);
+use Exporter qw(import);
 
 BEGIN {
-    $VERSION               = '2.47';
     $PREFERRED_CGI_MODULE  ||= 'CGI';
     @EXPORT = ();
     @EXPORT_OK = qw(get_form
@@ -131,8 +135,9 @@ sub get_form {
     my %hash = ();
     ### this particular use of $cgi->param in list context is safe
     local $CGI::LIST_CONTEXT_WARN = 0;
+    my $mp = $obj->can('multi_param') ? 1 : 0;
     foreach my $key ($obj->param) {
-        my @val = $obj->param($key);
+        my @val = $mp ? $obj->multi_param($key) : $obj->param($key);
         $hash{$key} = ($#val <= 0) ? $val[0] : \@val;
     }
     return $self->{'form'} = \%hash;
