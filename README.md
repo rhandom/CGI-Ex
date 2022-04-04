@@ -1,12 +1,12 @@
+[![unit-tests](https://github.com/ljepson/CGI-Ex/actions/workflows/unit-tests.yml/badge.svg)](https://github.com/ljepson/CGI-Ex/actions/workflows/unit-tests.yml)
+
 # NAME
 
 CGI::Ex - CGI utility suite - makes powerful application writing fun and easy
 
 # VERSION
 
-version 2.50
-
-[![master](https://travis-ci.org/ljepson/CGI-Ex.svg?branch=master)](https://travis-ci.org/ljepson/CGI-Ex)
+version 2.54
 
 # CGI::Ex SYNOPSIS
 
