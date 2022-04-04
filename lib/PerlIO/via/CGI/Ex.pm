@@ -24,7 +24,7 @@ it does the job.
 use strict;
 use CGI::Ex;
 
-our $VERSION = '2.44';
+our $VERSION = '999.99'; # VERSION
 
 sub PUSHED {
     my ($class, $mode, $fh) = @_;
