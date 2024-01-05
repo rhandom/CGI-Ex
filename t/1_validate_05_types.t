@@ -123,6 +123,11 @@ ok($e, 'min_values');
 $v = {foo => {enum => [1, 2, 3]}, bar => {enum => "1 || 2||3"}};
 $e = validate({}, $v);
 ok($e, 'enum');
+do {
+    local $CGI::Ex::Validate::type_ne_required = 1;
+    $e = validate({}, $v);
+    is $e, undef, 'enum';
+};
 
 $e = validate({foo => 1, bar => 1}, $v);
 ok(! $e, 'enum');
@@ -139,10 +144,19 @@ $e = validate({foo => 4, bar => 1}, $v);
 ok($e, 'enum');
 is("$e", "Foo is not in the given list.", 'enum shortcircuit');
 
+$v = {'group type_ne_required' => 1, foo => {enum => [1, 2, 3]}, bar => {enum => "1 || 2||3"}};
+$e = validate({}, $v);
+is $e, undef, 'enum type_ne_required';
+
 # equals
 $v = {foo => {equals => 'bar'}};
 $e = validate({}, $v);
 ok(! $e, 'equals');
+do {
+    local $CGI::Ex::Validate::type_ne_required = 1;
+    $e = validate({}, $v);
+    is $e, undef, 'equals';
+};
 
 $e = validate({foo => 1}, $v);
 ok($e, 'equals');
@@ -174,6 +188,11 @@ ok(!$e, "equals - no error");
 $v = {foo => {min_len => 10}};
 $e = validate({}, $v);
 ok($e, 'min_len');
+do {
+    local $CGI::Ex::Validate::type_ne_required = 1;
+    $e = validate({}, $v);
+    is $e, undef, 'min_len';
+};
 
 $e = validate({foo => ""}, $v);
 ok($e, 'min_len');
@@ -237,6 +256,11 @@ ok(! $e, 'match');
 $v = {foo => {match => 'm/^\w+$/'}};
 $e = validate({}, $v);
 ok($e, 'match');
+do {
+    local $CGI::Ex::Validate::type_ne_required = 1;
+    $e = validate({}, $v);
+    is $e, undef, 'match type_ne_required';
+};
 
 $v = {foo => {match => '! m/^\w+$/'}};
 $e = validate({}, $v);
@@ -246,6 +270,12 @@ ok(! $e, 'match');
 $v = {foo => {compare => '> 0'}};
 $e = validate({}, $v);
 ok($e, 'compare');
+do {
+    local $CGI::Ex::Validate::type_ne_required = 1;
+    $e = validate({}, $v);
+    is $e, undef, 'compare type_ne_required';
+};
+
 $v = {foo => {compare => '== 0'}};
 $e = validate({}, $v);
 ok(! $e, 'compare');
@@ -364,6 +394,11 @@ ok(! $e, 'custom');
 $e = validate({foo => "str"}, {foo => {custom => sub { my ($k, $v) = @_; die "Always fail ($v)\n" }}});
 ok($e, 'Got an error');
 is($e->as_hash->{'foo_error'}, "Always fail (str)", "Passed along the message from die");
+do {
+    local $CGI::Ex::Validate::type_ne_required = 1;
+    $e = validate({}, $v);
+    is $e, undef, 'custom - type_ne_required';
+};
 
 ### type checks
 $v = {foo => {type => 'ip', match => 'm/^203\./'}};
@@ -401,6 +436,11 @@ ok(!validate({n => $_}, {n => {type => 'uint'}}), "Type uint $_") for qw(0 2 23 
 ok(validate({n => $_}, {n => {type  => 'num'}}),  "Type num invalid $_")  for qw(0a a2 -0a 0..0 00 001 1.);
 ok(validate({n => $_}, {n => {type  => 'int'}}),  "Type int invalid $_")  for qw(1.1 0.1 0.0 -1.1 0a a2 a 00 001 2147483648 -2147483649);
 ok(validate({n => $_}, {n => {type  => 'uint'}}), "Type uint invalid $_") for qw(-1 -0 1.1 0.1 0.0 -1.1 0a a2 a 00 001 4294967296);
+
+#ok(validate({n => $_}, {n => {type  => 'str' }}), "Type str invalid $_") for {}, sub {}, [];
+#ok(validate({n => $_}, {n => {type  => 'code'}}), "Type code invlaid $_") for qw(1);
+
+#exit;
 
 ### min_in_set checks
 $v = {foo => {min_in_set => '2 of foo bar baz', max_values => 5}};

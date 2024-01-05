@@ -15,6 +15,9 @@ our @UNSUPPORTED_BROWSERS = (qr/MSIE\s+5.0\d/i);
 our $JS_URI_PATH;
 our $JS_URI_PATH_VALIDATE;
 
+our $type_ne_required;
+$type_ne_required //= 0;
+
 sub new {
     my $class = shift;
     return bless ref($_[0]) ? shift : {@_}, $class;
@@ -34,6 +37,7 @@ sub validate {
     my ($fields, $ARGS) = $self->get_ordered_fields($val_hash);
     return if ! @$fields;
 
+    local $type_ne_required = 1 if $ARGS->{'type_ne_required'};
     return if $ARGS->{'validate_if'} && ! $self->check_conditional($form, $ARGS->{'validate_if'});
 
     # Finally we have our arrayref of hashrefs that each have their 'field' key
@@ -393,6 +397,8 @@ sub validate_buddy {
     my $content_checked; # allow later for possible untainting (only happens if content was checked)
 
     OUTER: foreach my $value (@$values) {
+
+        next if ! defined($value) && $type_ne_required;
 
         if (exists $field_val->{'enum'}) {
             my $ref = ref($field_val->{'enum'}) ? $field_val->{'enum'} : [split(/\s*\|\|\s*/,$field_val->{'enum'})];
