@@ -7,7 +7,9 @@
 =cut
 
 use strict;
-use Test::More tests => 190;
+use warnings;
+use Scalar::Util qw(blessed);
+use Test::More tests => 278;
 
 use_ok('CGI::Ex::Validate');
 
@@ -15,6 +17,58 @@ my $v;
 my $e;
 
 sub validate { scalar CGI::Ex::Validate->new({as_array_title=>'',as_string_join=>"\n"})->validate(@_) }
+sub validate_as_hash { my $e = validate(@_); $e ? $e->as_hash({as_hash_suffix => ''}) : undef }
+
+# mini-json
+my %R = split / /, "\x0a \\n \x0d \\r \t \\t \b \\b \f \\f \x{2028} \\u2028 \x{2029} \\u2029 \\ \\\\ \" \\\"";
+$R{pack 'C', $_} ||= sprintf '\u%.4X', $_ for 0x00 .. 0x1f;
+sub to_json { &_e_val }
+sub _e_array { '['.join(',', map { _e_val($_) } @{$_[0]}).']' }
+sub _e_obj { my $o = shift; '{'.join(',', map { _e_str($_).':'._e_val($o->{$_}) } sort keys %$o).'}' }
+sub _e_str { (my $s = shift) =~ s{([\x00-\x1f\x{2028}\x{2029}\\"])}{$R{$1}}gs; "\"$s\"" }
+sub _e_val {
+    my ($v, $r) = shift;
+    return 'null' if ! defined $v;
+    return $r eq 'HASH' ? _e_obj($v)
+        : $r eq 'ARRAY' ? _e_array($v)
+        : ($r eq 'SCALAR' || $r =~ /[Bb]ool/) ? ($$v ? 'true' : 'false')
+        : (blessed $v and $r = $v->can('TO_JSON')) ? _e_val($v->$r)
+        : _e_str($v)
+        if $r = ref $v;
+    my $c = (my $z = "0") & $v;
+    return $v if length($c) && !($c ^ $c) && 0 + $v eq $v && $v * 0 == 0;
+    return _e_str($v);
+}
+
+sub ok_val {
+    my ($args, $val, $err) = @_;
+
+    my $e = CGI::Ex::Validate->new->validate($args, $val);
+    $e = $e->as_hash({as_hash_suffix => ''}) if $e;
+    my $e_json = $e ? to_json($e) : '';
+
+    my ($file, $pkg, $line) = caller;
+    my $sub = (caller 1)[3] || 'main';
+    $sub =~ s/.+:://;
+
+    my $had_code_butnonref = ($val->{'foo'} && $val->{'foo'}->{'custom'} && ref($val->{'foo'}->{'custom'}) ne 'CODE');
+    $_ = to_json($_) for $args, $val;
+    $val =~ s/"custom":null/"custom":sub{...}/ if !$had_code_butnonref;
+    $args = substr($args, 0, 70).'...' if length $args > 73;
+
+    if (! defined $err) {
+        ok(!$e, "$sub line $line - $val (args: $args) --> Shouldn't have error") || diag explain $e;
+    } elsif (! $e) {
+        ok(0, "$sub line $line - $val (args: $args) --> Should've had an error but did not");
+        diag explain $err;
+    } elsif (ref($err) eq ref(qr//)) {
+        like($e_json, $err, "$sub line $line - $val (args: $args) --> Like: $err");
+    } else {
+        my $_err = to_json($err);
+        is_deeply($e, $err, "$sub line $line - $val (args: $args) --> $_err") || diag explain [$e, $err];
+    }
+    return $e || undef;
+}
 
 ### required
 $v = {foo => {required => 1}};
@@ -431,16 +485,70 @@ $e = validate({foo => '123456789012345678901234567890123456789012345678901234567
 ok($e, 'type domain');
 
 ok(!validate({n => $_}, {n => {type => 'num'}}),  "Type num $_")  for qw(0 2 23 -0 -2 -23 0.0 .1 0.1 0.10 1.0 1.01);
+ok(!validate({n => $_}, {n => {type => 'unum'}}), "Type unum $_") for qw(0 2 23 0.0 .1 0.1 0.10 1.0 1.01);
 ok(!validate({n => $_}, {n => {type => 'int'}}),  "Type int $_")  for qw(0 2 23 -0 -2 -23 2147483647 -2147483648);
 ok(!validate({n => $_}, {n => {type => 'uint'}}), "Type uint $_") for qw(0 2 23 4294967295);
+ok(!validate({n => $_}, {n => {type => 'str'  }}), "Type str $_") for '', 12, qw(0 2 a);
+ok(!validate({n => $_}, {n => {type => 'code' }}), "Type code") for undef, sub {};
+
 ok(validate({n => $_}, {n => {type  => 'num'}}),  "Type num invalid $_")  for qw(0a a2 -0a 0..0 00 001 1.);
 ok(validate({n => $_}, {n => {type  => 'int'}}),  "Type int invalid $_")  for qw(1.1 0.1 0.0 -1.1 0a a2 a 00 001 2147483648 -2147483649);
 ok(validate({n => $_}, {n => {type  => 'uint'}}), "Type uint invalid $_") for qw(-1 -0 1.1 0.1 0.0 -1.1 0a a2 a 00 001 4294967296);
 
-#ok(validate({n => $_}, {n => {type  => 'str' }}), "Type str invalid $_") for {}, sub {}, [];
-#ok(validate({n => $_}, {n => {type  => 'code'}}), "Type code invlaid $_") for qw(1);
+ok(validate({n => $_}, {n => {type  => 'str' }}), "Type str invalid $_") for {}, sub {}, [];
+ok(validate({n => $_}, {n => {type  => 'code'}}), "Type code invalid $_") for qw(1);
 
-#exit;
+$v = {foo => {type => {bar => {required => 1}}, max_values => 2}};
+
+ok_val({}, $v, {foo => 'Foo did not match type hash.'});
+do {
+    local $CGI::Ex::Validate::type_ne_required = 1;
+    ok_val({}, $v, undef);
+};
+
+ok_val({foo => 1}, $v, {foo => 'Foo did not match type hash.'});
+ok_val({foo => {}}, $v, {'foo.bar' => 'The field foo.bar is required.'});
+
+ok_val({foo => {bar => 2}}, $v, undef);
+ok_val({foo => {bar => 2}}, $v, undef);
+ok_val({foo => [{bar => 2}]}, $v, undef);
+ok_val({foo => [{bar => 2}, {bar => 3}]}, $v, undef);
+
+$v = {foo => {type => []}};
+ok_val({}, $v, undef);
+ok_val({foo => [1]}, $v, undef);
+ok_val({foo => [1,'s']}, $v, undef);
+
+ok_val({foo => 1}, $v, {foo => 'Foo did not match type [].'});
+
+$v = {foo => {type => [], coerce => 1}};
+ok_val(my $f = {}, $v, undef);
+is_deeply($f, {}, 'type line '.__LINE__.' - coerce (not passed)');
+ok_val({foo => [1]}, $v, undef);
+ok_val({foo => [1,'s']}, $v, undef);
+for my $n (1, 0, '', undef) {
+    ok_val(my $f = {foo => $n}, $v, undef);
+    is_deeply($f, {foo => [$n]}, 'type line '.__LINE__.' - coerce '.(defined($n) ? $n : 'undef')) || debug $f;
+}
+
+$v = {foo => {type => 'array'}};
+ok_val({foo => [1]}, $v, undef);
+ok_val({foo => [1,'s']}, $v, undef);
+ok_val({foo => 1}, $v, {foo => 'Foo did not match type array.'});
+
+$v = {foo => {type => ['int']}};
+ok_val({foo => [1]}, $v, undef);
+ok_val({foo => [1,undef,2]}, {%$v, 'group type_ne_required' => 1}, undef);
+ok_val({foo => [1,'s']}, $v, {foo => 'Foo did not match type int.'});
+ok_val({foo => 1}, $v, {foo => 'Foo did not match type [].'});
+
+$v = {foo => {type => ['int'], req => 1}};
+ok_val({foo => [1,2,undef]}, $v, {foo => 'Foo is required.'});
+
+$v = {foo => {type => ['str']}};
+ok_val({foo => [1,undef,2,"bar",'']}, {%$v, 'group type_ne_required' => 1}, undef);
+ok_val({foo => [1,2,"bar",'']}, $v, undef);
+
 
 ### min_in_set checks
 $v = {foo => {min_in_set => '2 of foo bar baz', max_values => 5}};
@@ -488,4 +596,130 @@ $e = validate($f, $v);
 ok(! $e, 'default');
 
 ok($f->{foo} && $f->{foo} eq 'hmmmm', 'had right default');
+
+
+###----------------------------------------------------------------###
+
+note 'nested types';
+
+$v = {
+    foo => {
+        validate_if => 'foo',
+        type => {
+            baz => {required => 1}, # required only if "foo" exists
+        },
+    },
+};
+$e = validate_as_hash({}, $v);
+ok(! $e, "Type hash, optional check") || debug $e;
+
+$e = validate_as_hash({foo => 1}, $v);
+is_deeply($e, {foo => 'Foo did not match type hash.'}, "Type hash, type check");
+
+
+$e = validate_as_hash({foo => {}}, $v);
+is_deeply($e, {'foo.baz' => 'The field foo.baz is required.'}, "Type hash, inner required check");
+
+$e = validate_as_hash({foo => {baz => 1}}, $v);
+ok(! $e, "Type hash, inner required ok");
+
+$v = {
+    foo => {
+        max_values => 2,
+        type => {
+            baz => {required => 1}, # required only if "foo" exists
+        },
+    },
+};
+$e = validate_as_hash({foo => {baz => 1}}, $v);
+ok(! $e, "Type hash, array 1 element ok");
+
+$e = validate_as_hash({foo => []}, $v);
+ok(! $e, "Type hash, array 0 elements ok");
+
+$e = validate_as_hash({foo => [{baz => 1},{baz=>2}]}, $v);
+ok(! $e, "Type hash, array 2 elements ok");
+
+$e = validate_as_hash({foo => [{baz => 1},{baz=>2},{baz=>3}]}, $v);
+is_deeply($e, {'foo' => 'Foo had more than 2 values.'}, "Type hash, over max_values");
+
+$e = validate_as_hash({foo => [{baz => 1},{fail=>1}]}, $v);
+is_deeply($e, {'foo.baz' => 'The field foo.baz is required.'}, "Type hash, inner required check");
+
+
+$v = {
+    foo => {
+        type => {
+            baz => {
+                max_values => 2,
+                type => {
+                    bar => {},
+                },
+            },
+        },
+    },
+};
+$e = validate_as_hash({foo => {baz => [{},{}]}}, $v);
+ok(! $e, "Type hash, nested array 2 elements ok");
+
+$e = validate_as_hash({foo => {baz => [{},{},{}]}}, $v);
+ok($e, "Type hash, nested array 3 elements, over max_values");
+
+
+$v = {
+    foo => {
+        max_values => 3,
+        type => {
+            baz => {
+                required => 1, # required only if "foo" exists
+                default => '2',
+            },
+        },
+        #validate_if => 'foo', #added later
+    },
+};
+
+my $form = {foo => [{baz => 1},{}]};
+$e = validate_as_hash($form, $v);
+ok(! $e, "Type hash, array 2 elements ok");
+is_deeply($form, { 'foo' => [ { 'baz' => 1 }, { 'baz' => '2' } ] }, 'defaults set without validate_if');
+
+$v->{foo}{validate_if} = 'foo';
+
+$form = { foo => [ {} ] };
+$e = validate_as_hash($form, $v);
+ok(!$e, "Type hash, array 1 elements ok");
+is_deeply($form, { 'foo' => [ { 'baz' => '2' } ] }, 'default works with validate_if');
+
+$form = { foo => [ {baz=>1}, {x=>1}, {} ] };
+$e = validate_as_hash($form, $v);
+ok(!$e, "Type hash, array 3 elements ok");
+is_deeply($form, { 'foo' => [ {baz=>1}, {x=>1,baz=>2}, {baz=>2} ] }, 'defaults set with validate_if containing an array of multiple values');
+
+
+$v = {
+    'group no_extra_fields' => 1,
+    foo => {
+        max_values => 3,
+        type => 'uint',
+    },
+};
+
+$form = {foo => [3]};
+$e = validate_as_hash($form, $v);
+ok(! $e, "Verify no_extra_fields works on non-hash data inside an array") or note explain $e;
+
+$v = {foo => {type => [{}], coerce => 1}};
+ok_val({foo => 1}, $v, {foo => 'Foo did not match type hash.'});
+ok_val({foo => [1]}, $v, {foo => 'Foo did not match type hash.'});
+ok_val({foo => {}}, $v, undef);
+ok_val({foo => [{}]}, $v, undef);
+
+$v = {foo => {type => [{bar => {type => ['uint']}}], coerce => 1}};
+ok_val({foo => {}}, {%$v, 'group type_ne_required' => 1}, undef);
+ok_val({foo => {bar => 1}}, $v, {'foo.bar' => 'The field foo.bar did not match type [].'});
+ok_val({foo => {bar => [1]}}, $v, undef);
+$v = {foo => {type => [{bar => {type => ['uint'], coerce => 1}}], coerce => 1}};
+ok_val($f = {foo => {bar => 1}}, $v, undef);
+is_deeply($f, {foo=>[{bar => [1]}]}, 'nested line '.__LINE__.' - coerce');
 
