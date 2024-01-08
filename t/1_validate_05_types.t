@@ -590,7 +590,7 @@ $e = validate({bar => 1}, $v);
 ok(! $e, 'validate_if - negated');
 
 ### default value
-my $f = {};
+$f = {};
 $v = {foo => {required => 1, default => 'hmmmm'}};
 $e = validate($f, $v);
 ok(! $e, 'default');
