@@ -135,6 +135,11 @@ function run_tests () {
   e = validate({text1:1}, v);
   ok(! e, "No enum error");
 
+  v['group type_ne_required'] = 1;
+  e = validate({}, v);
+  ok(!e, "type_ne_required - ok if no val");
+  ok(1, JSON.stringify(e));
+
   v = {text1:{'enum':[1, 2, 3],match:'m/3/'}};
   e = validate({text1:1}, v);
   ok(e, 'enum');
@@ -144,7 +149,7 @@ function run_tests () {
   ok(e, 'enum');
   ok(e.text1_error == "The field text1 is not in the given list.", 'enum shortcircuit2');
 
-  v = {text2:{'enum':"1 || 2||3"}};
+  v = {'group type_ne_required': 1, text2:{'enum':"1 || 2||3"}};
   e = validate({text2:1}, v);
   ok(! e, "No enum error");
   e = validate({text2:4}, v);
